@@ -10,102 +10,8 @@ library(caret)
 
 ###Load SSN object Kinzig
 
-K <- importSSN("E:/Madariaga/Documents/Phd/SSN/Kinzig_upd/Kin_upd.ssn", predpts = "Kinzig_loc")
 
-
-#createDistMat(K, predpts="Kinzig_loc",  o.write = TRUE)
-distPred1km <- getStreamDistMat(K, Name = "Kinzig_loc")
-
-dmats <- getStreamDistMat(K)
-
-
-K<-additive.function(K, "H2OArea", "computed.afv")
-
-names(K)
-
-###Get observation dataframe
-
-obs_df <- getSSNdata.frame(K,"Obs")
-
-
-###Load Kinzig dataset
-
-Kinzig_pa <- read.csv("E:/Madariaga/Documents/Phd/SSN/Kinzig_upd/Kinzig_large_iha.csv")[,-1]
-filtered_cols <- Kinzig_pa %>%
-  select(7:98) %>%
-  select_if(~ sum(.) >= 15)
-Kinzig_df <- Kinzig_pa %>%
-  select(1:6, 99:104, all_of(names(filtered_cols)))
-
-
-
-###Load the bioclim dataset
-
-Biovar <- read.csv("E:/Madariaga/Documents/Phd/SSN/Kinzig_upd/BiovarK_upd.csv", check.names = FALSE)[,-1]
-Biovar_cl <- Biovar[!duplicated(Biovar),]
-##Join with obs_df
-
-obs_df <- left_join(obs_df,
-                    Kinzig_df[,c("site_code", "year", "Channel",names(filtered_cols), "dh4", "fl1", "ra4", "th3")], 
-                    by= c("site_code", "year", "Channel")) %>%
-  filter(duplicated(id) == FALSE)%>%
-  left_join(.,Biovar_cl, by= c("site_code", "year"))
-
-
-###Check variable colinearity
-
-vars <- obs_df[,114:136]
-
-cor_matrix <- cor(vars)
-
-threshold <- 0.65
-
-highly_correlated <- which(abs(cor_matrix) > threshold & cor_matrix != 1, arr.ind = TRUE)
-var_to_drop <- c()
-
-for (i in 1:nrow(highly_correlated)) {
-  row_index <- highly_correlated[i, "row"]
-  col_index <- highly_correlated[i, "col"]
-  var_to_drop <- c(var_to_drop, colnames(vars)[col_index])
-}
-
-
-
-###Extract species names to create separate dataframes (evaluation sets)
-
-Knames <- names(filtered_cols)
-
-
-null_AIC_list <-readRDS("E:/Madariaga/Documents/Phd/SSN/Kinzig_upd/server/Kinzig_upd/Results/dredge_formulasK_upd.rds")
-
-
-# Create an empty list to store the SSN objects
-ssn_list <- list()
-
-
-# Loop through each name in Knames
-for (name in Knames) {
-  # Subset the obs_df dataframe
-  subset <- obs_df[, c(names(obs_df[,c(1:23,114:121)]), name)]
-  subset_folded <- vfold_cv(subset,v=5, repeats = 1,
-                            strata= name)
-  
-  # Create a new SSN object with the subset
-  ssn_obj <- putSSNdata.frame(subset, K)  # Replace K with the appropriate value
-  
-  # Assign the SSN object to the list with the corresponding name
-  ssn_list[[name]][["obj"]] <- ssn_obj
-  ssn_list[[name]][["folds"]]<-subset_folded
-}
-
-set.seed(432)
-
-#cv_ids <- list()
-
-#for (k in Knames){
-#  folds <- ssn_list[[k]][["folds"]]
-#  cv_ids[[k]] <- folds
-#}
+#null_AIC_list <-readRDS("E:/Madariaga/Documents/Phd/SSN/Kinzig_upd/server/Kinzig_upd/Results/dredge_formulasK_upd.rds")
 
 options(na.action = "na.omit")
 
@@ -163,7 +69,7 @@ for (name in Knames) {
   }
 }
 
-source("E:/Madariaga/Documents/Phd/SSN/functions_modified.R")
+source("E:/Madariaga/Documents/Phd/Manuscript2/SDM_connectivity_transferability/SSN_o/functions_modified.R")
 
 eval_results_null_glm <- list()
 
@@ -253,40 +159,6 @@ saveRDS(mean_null, "E:/Madariaga/Documents/Phd/Manuscript2/SSN/NULL/null_cv_df.r
 
 
 ##### Train and test in independent datasets
-###Extract species names to create separate dataframes (evaluation sets)
-
-obs_df <- obs_df[, !(colnames(obs_df) %in% var_to_drop)]
-
-obs_ev <- obs_df
-
-Knames <- names(filtered_cols)
-Knames_ev <- paste0(Knames, ".ev")
-
-obs_ev <- obs_ev%>%
-  rename_with(~ paste0(., ".ev"), any_of(Knames))
-
-for (i in Knames_ev){
-  obs_ev[,i]<- ifelse(obs_ev$dataset=="Senckenberg", NA,obs_ev[,i])
-}
-
-
-ssn_objects <- list()
-
-# Loop through each name in Knames
-for (name in Knames) {
-  # Subset the obs_df dataframe
-  subset <- obs_df[, c(names(obs_df[,c(1:23,114:121)]), name)]%>%
-    left_join(.,obs_ev[,c("id", paste0(name,".ev"))], by= "id")
-  
-  
-  # Create a new SSN object with the subset
-  ssn_obj <- putSSNdata.frame(subset, K)  # Replace K with the appropriate value
-  
-  # Assign the SSN object to the list with the corresponding name
-  ssn_objects[[name]] <- ssn_obj
-}
-
-
 
 
 glm_null_independent <- list()
