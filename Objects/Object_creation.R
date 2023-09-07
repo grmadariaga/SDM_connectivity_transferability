@@ -12,7 +12,7 @@ library(caret)
 
 ###Load SSN object Kinzig
 
-K <- importSSN("E:/Madariaga/Documents/Phd/Manuscript2/SDM_connectivity_transferability/SSN_o/Kinzig_upd/Kin_upd.ssn", predpts = "Kinzig_loc")
+K <- importSSN("E:/Madariaga/Documents/Phd/Manuscript2/SDM_connectivity_transferability/Objects/Kin_upd.ssn", predpts = "Kinzig_loc")
 
 
 #createDistMat(K, predpts="Kinzig_loc",  o.write = TRUE)
