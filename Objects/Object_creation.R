@@ -32,7 +32,7 @@ obs_df <- getSSNdata.frame(K,"Obs")
 
 ###Load Kinzig IHA dataset
 
-Kinzig_pa <- read.csv("E:/Madariaga/Documents/Phd/Manuscript2/SDM_connectivity_transferability/SSN_o/Kinzig_upd/Kinzig_large_iha.csv")[,-1]
+Kinzig_pa <- read.csv("E:/Madariaga/Documents/Phd/Manuscript2/SDM_connectivity_transferability/Objects/Kinzig_large_iha.csv")[,-1]
 filtered_cols <- Kinzig_pa %>%
   select(7:98) %>%
   select_if(~ sum(.) >= 15)
@@ -43,7 +43,7 @@ Kinzig_df <- Kinzig_pa %>%
 
 ###Load the Kinzig bioclim dataset
 
-Biovar <- read.csv("E:/Madariaga/Documents/Phd/Manuscript2/SDM_connectivity_transferability/SSN_o/Kinzig_upd/BiovarK_upd.csv", check.names = FALSE)[,-1]
+Biovar <- read.csv("E:/Madariaga/Documents/Phd/Manuscript2/SDM_connectivity_transferability/Objects/BiovarK_upd.csv", check.names = FALSE)[,-1]
 Biovar_cl <- Biovar[!duplicated(Biovar),]
 ##Join with obs_df
 
@@ -217,7 +217,7 @@ for (k in Knames) {
 
 ####load all possible combinations of CorMdls
 
-load("E:/Madariaga/Documents/Phd/Manuscript2/SDM_connectivity_transferability/SSN_o/Kinzig_upd/Server/Kinzig_upd/CorMdls.RData")
+load("E:/Madariaga/Documents/Phd/Manuscript2/SDM_connectivity_transferability/Objects/CorMdls.RData")
 
 ######Select spatial model for each species
 
