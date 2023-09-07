@@ -260,8 +260,8 @@ for (i in Knames) {
       ssn_cor_test <- foreach (m = 1:length(CorMdls), .packages = "SSN", .errorhandling="remove") %dopar%  {
         print(paste(eval(CorMdls[[m]])))
         print("ok3")
-        glmssn(RES ~ 1, SSNobj, CorModels= eval(CorMdls[[m]]),
-               addfunccol = "computed.afv")
+        try(glmssn(RES ~ 1, SSNobj, CorModels= eval(CorMdls[[m]]),
+               addfunccol = "computed.afv"))
       }
       parallel::stopCluster(cl)
       unregister_dopar()
