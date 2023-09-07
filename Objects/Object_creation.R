@@ -204,3 +204,80 @@ stopCluster(cluster)
 
 
 #saveRDS("E:/Madariaga/Documents/Phd/Manuscript2/SDM_connectivity_transferability/SSN_o/Kinzig_upd/server/Kinzig_upd/Results/dredge_formulasK_upd.rds")
+
+##### Create a list with non spatial df
+species_df <- list()
+
+for (k in Knames) {
+  species_df[[k]]<- ssn_objects[[k]]@obspoints@SSNPoints[[1]]@point.data
+  
+}
+
+#SaveRDS("E:/Madariaga/Documents/Phd/Manuscript2/SDM_connectivity_transferability/df_species.rds")
+
+####load all possible combinations of CorMdls
+
+load("E:/Madariaga/Documents/Phd/Manuscript2/SDM_connectivity_transferability/SSN_o/Kinzig_upd/Server/Kinzig_upd/CorMdls.RData")
+
+######Select spatial model for each species
+
+AIC_ssn_select <- list()
+
+
+###remove previous cluster to avoid conflicts
+rm(cluster)
+
+
+#### Function to unregister_dopar() in each loop
+unregister_dopar <- function() {
+  env <- foreach:::.foreachGlobals
+  rm(list=ls(name=env), pos=env)
+}
+
+unregister_dopar()
+
+
+
+for (i in Knames) {
+  tryCatch(
+    {
+      frml <- null_AIC_list[[i]]
+      DataNsp <- ssn_objects[[i]]%>%getSSNdata.frame(.,"Obs")
+      print("ok")
+      mod <- try(glm(formula = frml, 
+                     data = DataNsp,
+                     family = binomial))
+      SSNobj <- ssn_objects[[i]]
+      SSNobj@obspoints@SSNPoints[[1]]@point.data$RES <- resid(mod)
+      print("Selecting a spatial autocorrelation model...")
+      
+      cl <- makePSOCKcluster(30, outfile="")
+      parallel::mcaffinity(1:30)
+      doParallel::registerDoParallel(cl)
+      getDoParWorkers()
+      print("ok2")
+      
+      ssn_cor_test <- foreach (m = 1:length(CorMdls), .packages = "SSN", .errorhandling="remove") %dopar%  {
+        print(paste(eval(CorMdls[[m]])))
+        print("ok3")
+        glmssn(RES ~ 1, SSNobj, CorModels= eval(CorMdls[[m]]),
+               addfunccol = "computed.afv")
+      }
+      parallel::stopCluster(cl)
+      unregister_dopar()
+      gc()
+      # #Models AIC
+      cor_modl_AIC <- InfoCritCompare(keep(ssn_cor_test, is.list))
+      model <- eval(CorMdls[[which.min(cor_modl_AIC$AIC)]])
+      AIC_ssn_select[[i]] <- model
+    },
+    error = function(err) {
+      message(paste("Error occurred for:", i))
+      AIC_ssn_select[[i]] <<- paste("Failed:", name, conditionMessage(err))  
+    }
+  )
+}
+
+#saveRDS(AIC_ssn_select, file = "Kinzig_upd/ssn_selection_90.rds")
+
+
