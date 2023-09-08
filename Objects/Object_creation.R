@@ -227,8 +227,46 @@ AIC_ssn_select <- list()
 ###remove previous cluster to avoid conflicts
 rm(cluster)
 
+#### First run glmssn without spatial model included, in the next steps we will use the residuals of those models to find a spatial model
+glm_null_models <- list()
+
+# Loop through each name in Knames
+for (name in Knames) {
+  
+  tryCatch(
+    {
+      
+      # Get the ssn object from the ssn_list
+      ssn_obj <- ssn_objects[[name]]
+      
+      frml <- null_AIC_list[[name]][["formula"]]
+      
+      
+      # Run the glmssn model without spatial model
+      model_1 <- glmssn(
+        formula = frml,
+        ssn.object = ssn_obj,
+        family = "binomial",
+        CorModels = NULL
+      )
+      
+      # Save the model in the glm_null_models list with the name
+      glm_null_models[[name]] <- model_1},  
+    error =function(e) {
+      # Store the error message in the list with the name from Knames
+      glm_null_models[[name]] <<- paste("Failed model:", name, conditionMessage(e))
+    }
+  )
+}
+
+
+#saveRDS(glm_null_models, file = "Kinzig_upd/glm_null_models2011.rds")
+#glm_null_models <- readRDS("Kinzig_upd/Results/glm_null_models2011.rds")
+####Create evaluation results for each species with null_models
+
 
 #### Function to unregister_dopar() in each loop
+
 unregister_dopar <- function() {
   env <- foreach:::.foreachGlobals
   rm(list=ls(name=env), pos=env)
@@ -237,22 +275,24 @@ unregister_dopar <- function() {
 unregister_dopar()
 
 
+######Select spatial model for each species
 
-for (i in Knames) {
+AIC_ssn_select <- list()
+
+
+for (i in Knames[8:90]) {
   tryCatch(
     {
-      frml <- null_AIC_list[[i]]
-      DataNsp <- ssn_objects[[i]]%>%getSSNdata.frame(.,"Obs")
-      print("ok")
-      mod <- try(glm(formula = frml, 
-                     data = DataNsp,
-                     family = binomial))
+      ###Select null model for the species
+      mod <- glm_null_models[[i]]
       SSNobj <- ssn_objects[[i]]
-      SSNobj@obspoints@SSNPoints[[1]]@point.data$RES <- resid(mod)
+      ###add residuals from null model to ssn object
+      
+      SSNobj@obspoints@SSNPoints[[1]]@point.data$RES <- residuals.glmssn(mod)[["ssn.object"]]@obspoints@SSNPoints[[1]]@point.data[["_resid_"]]
       print("Selecting a spatial autocorrelation model...")
       
-      cl <- makePSOCKcluster(30, outfile="")
-      parallel::mcaffinity(1:30)
+      cl <- makePSOCKcluster(25, outfile="")
+      parallel::mcaffinity(1:25)
       doParallel::registerDoParallel(cl)
       getDoParWorkers()
       print("ok2")
@@ -260,13 +300,13 @@ for (i in Knames) {
       ssn_cor_test <- foreach (m = 1:length(CorMdls), .packages = "SSN", .errorhandling="remove") %dopar%  {
         print(paste(eval(CorMdls[[m]])))
         print("ok3")
-        try(glmssn(RES ~ 1, SSNobj, CorModels= eval(CorMdls[[m]]),
-               addfunccol = "computed.afv"))
+        glmssn(RES ~ 1, SSNobj, CorModels= eval(CorMdls[[m]]),
+               addfunccol = "computed.afv")
       }
       parallel::stopCluster(cl)
       unregister_dopar()
       gc()
-      # #Models AIC
+      # #Models AIC, selects model with lower AIC describing the residuals
       cor_modl_AIC <- InfoCritCompare(keep(ssn_cor_test, is.list))
       model <- eval(CorMdls[[which.min(cor_modl_AIC$AIC)]])
       AIC_ssn_select[[i]] <- model
